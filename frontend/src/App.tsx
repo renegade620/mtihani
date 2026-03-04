@@ -433,19 +433,20 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [role, setRole] = useState<Role>("STUDENT");
-
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
     apiFetch("/api/auth/me/")
       .then(setUser)
-      .catch(() => localStorage.removeItem("token"));
+      .catch(() => {
+        localStorage.removeItem("token");
+      });
   }, []);
 
   async function handleLogin(e: React.FormEvent) {
@@ -470,9 +471,14 @@ function App() {
     try {
       await apiFetch("/api/auth/register/", {
         method: "POST",
-        body: JSON.stringify({ username, password, email: "", role }),
+        body: JSON.stringify({
+          username,
+          password,
+          email: "",
+          role,
+          organization: null,
+        }),
       });
-      // After successful signup, log in automatically
       await handleLogin(e);
     } catch (err: any) {
       setError(err.message ?? "Registration failed");
@@ -482,6 +488,9 @@ function App() {
   function handleLogout() {
     localStorage.removeItem("token");
     setUser(null);
+    setUsername("");
+    setPassword("");
+    setMode("login");
   }
 
   if (!user) {
@@ -490,8 +499,21 @@ function App() {
       <div style={{ maxWidth: 400, margin: "4rem auto", fontFamily: "system-ui" }}>
         <h1>Mtihani {isLogin ? "Login" : "Sign up"}</h1>
         <form onSubmit={isLogin ? handleLogin : handleRegister}>
-          {/* username/password fields reused */}
-          {/* for signup, add role select (optional) */}
+          <div>
+            <label>Username</label>
+            <input
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+          </div>
           {!isLogin && (
             <div style={{ marginTop: 8 }}>
               <label>Role</label>
@@ -521,7 +543,6 @@ function App() {
     );
   }
 
-  // For now, we only implement the student home explicitly.
   if (user.role === "STUDENT") {
     return <StudentHome user={user} onLogout={handleLogout} />;
   }
@@ -532,20 +553,7 @@ function App() {
     return <DirectorHome user={user} onLogout={handleLogout} />;
   }
 
-  return (
-    <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <h1>Mtihani</h1>
-          <p>
-            Logged in as <strong>{user.username}</strong> ({user.role})
-          </p>
-        </div>
-        <button onClick={handleLogout}>Logout</button>
-      </header>
-      <p>Teacher/Director UI coming next.</p>
-    </div>
-  );
+  return null;
 }
 
 export default App;
