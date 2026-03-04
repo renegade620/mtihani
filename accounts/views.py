@@ -42,3 +42,9 @@ class MeView(generics.RetrieveAPIView):
             "organization_id": user.organization_id,
         }
         return Response(data)
+
+
+
+class RegisterView(generics.CreateAPIView):
+    permission_classes = [permissions.AllowAny]    # for dev; you can tighten later
+    serializer_class = RegisterSerializer
