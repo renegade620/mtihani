@@ -82,3 +82,36 @@ class AnswerViewSet(viewsets.ModelViewSet):
         )
         return Response(AnswerVersionSerializer(version).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"], url_path="apply-suggestion")
+    def apply_suggestion(self, request, pk=None):
+        """
+        Student applies a teacher suggestion: copies the suggested text into current_text.
+        Body: { "version_id": <id> }
+        """
+        answer = self.get_object()
+        user: User = request.user
+        if user.role != User.Role.STUDENT or answer.student_id != user.id:
+            return Response(
+                {"detail": "Only the student who owns this answer can apply suggestions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        version_id = request.data.get("version_id")
+        if not version_id:
+            return Response({"detail": "version_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        version = answer.versions.filter(id=version_id, is_teacher_suggestion=True).first()
+        if not version:
+            return Response({"detail": "Suggestion not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        answer.current_text = version.text
+        answer.save(update_fields=["current_text", "updated_at"])
+
+        AnswerVersion.objects.create(
+            answer=answer,
+            author=user,
+            text=version.text,
+            is_teacher_suggestion=False,
+        )
+        return Response(AnswerSerializer(answer).data)
+

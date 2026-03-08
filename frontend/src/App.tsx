@@ -3,6 +3,83 @@ import { apiFetch } from "./api";
 
 type Role = "DIRECTOR" | "TEACHER" | "STUDENT";
 
+function AppLayout({
+  user,
+  onLogout,
+  sidebar,
+  children,
+  title,
+}: {
+  user: User;
+  onLogout: () => void;
+  sidebar: React.ReactNode;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <header
+        style={{
+          background: "var(--mtihani-header-bg)",
+          borderBottom: "1px solid var(--mtihani-header-border)",
+          padding: "0.75rem 1.5rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <h1 style={{ margin: 0, fontSize: "1.25rem", color: "var(--mtihani-sidebar-active)" }}>
+            Mtihani
+          </h1>
+          {title && (
+            <span style={{ color: "#666", fontSize: "0.9rem" }}>/{title}</span>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontSize: "0.9rem", color: "#666" }}>{user.username}</span>
+          <button onClick={onLogout} style={{ padding: "0.25rem 0.75rem" }}>
+            Logout
+          </button>
+        </div>
+      </header>
+      <div style={{ display: "flex", flex: 1 }}>
+        <aside
+          style={{
+            width: 260,
+            minWidth: 260,
+            background: "var(--mtihani-sidebar-bg)",
+            color: "#fff",
+            padding: "1rem 0",
+          }}
+        >
+          {sidebar}
+        </aside>
+        <main
+          style={{
+            flex: 1,
+            padding: "1.5rem",
+            background: "#f5f5f5",
+            overflow: "auto",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--mtihani-card-bg)",
+              border: "1px solid var(--mtihani-card-border)",
+              borderRadius: 6,
+              padding: "1.25rem",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            }}
+          >
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
 type User = {
   id: number;
   username: string;
@@ -23,11 +100,19 @@ type Question = {
   max_score: string;
 };
 
+type AnswerVersion = {
+  id: number;
+  text: string;
+  is_teacher_suggestion: boolean;
+  author_username?: string;
+};
+
 type Answer = {
   id?: number;
   question: number;
   current_text: string;
   status: "DRAFT" | "SUBMITTED";
+  versions?: AnswerVersion[];
 };
 
 function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
@@ -57,17 +142,60 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     load();
   }, []);
 
-  useEffect(() => {
-    async function loadGrades() {
-      try {
-        const data = await apiFetch("/api/worksheet-grades/");
-        setWorksheetGrades(data);
-      } catch {
-        // ignore for now
-      }
+  async function loadGrades() {
+    try {
+      const data = await apiFetch("/api/worksheet-grades/");
+      setWorksheetGrades(data);
+    } catch {
+      /* ignore */
     }
+  }
+
+  async function loadAnswers() {
+    if (!selectedWorksheetId) return;
+    try {
+      const data = await apiFetch(`/api/answers/?worksheet=${selectedWorksheetId}`);
+      const byQuestion: Record<number, Answer> = {};
+      for (const a of data) {
+        byQuestion[a.question] = a;
+      }
+      setAnswers(prev => ({ ...prev, ...byQuestion }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  useEffect(() => {
     loadGrades();
   }, []);
+
+  useEffect(() => {
+    loadAnswers();
+  }, [selectedWorksheetId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadGrades();
+      loadAnswers();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [selectedWorksheetId]);
+
+  async function handleApplySuggestion(answerId: number, versionId: number) {
+    try {
+      setLoading(true);
+      setError(null);
+      const saved = await apiFetch(`/api/answers/${answerId}/apply-suggestion/`, {
+        method: "POST",
+        body: JSON.stringify({ version_id: versionId }),
+      });
+      setAnswers(prev => ({ ...prev, [saved.question]: saved }));
+    } catch (e: any) {
+      setError(e.message ?? "Failed to apply suggestion");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleAnswerChange(q: Question, text: string) {
     setAnswers(prev => ({
@@ -118,45 +246,35 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     selectedWorksheet &&
     worksheetGrades.find(g => g.worksheet === selectedWorksheet.id);
 
-  return (
-    <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <h1>Mtihani</h1>
-          <p>
-            Logged in as <strong>{user.username}</strong> ({user.role})
-          </p>
+  const studentSidebar = (
+    <>
+      <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
+        Worksheets
+      </h3>
+      {worksheets.map(w => (
+        <div
+          key={w.id}
+          onClick={() => setSelectedWorksheetId(w.id)}
+          style={{
+            padding: "0.5rem 1rem",
+            cursor: "pointer",
+            background:
+              w.id === selectedWorksheetId
+                ? "var(--mtihani-sidebar-active)"
+                : "transparent",
+          }}
+        >
+          {w.title}
         </div>
-        <button onClick={onLogout}>Logout</button>
-      </header>
+      ))}
+    </>
+  );
 
-      <hr />
-
+  return (
+    <AppLayout user={user} onLogout={onLogout} sidebar={studentSidebar} title="Student">
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <div style={{ display: "flex", gap: "2rem", marginTop: "1rem" }}>
-        <aside style={{ minWidth: 220 }}>
-          <h2>Worksheets</h2>
-          {worksheets.map(w => (
-            <div
-              key={w.id}
-              onClick={() => setSelectedWorksheetId(w.id)}
-              style={{
-                padding: "0.5rem",
-                marginBottom: "0.25rem",
-                cursor: "pointer",
-                background:
-                  w.id === selectedWorksheetId ? "#eef" : "transparent",
-              }}
-            >
-              {w.title}
-            </div>
-          ))}
-        </aside>
-
-        <main style={{ flex: 1 }}>
-          {selectedWorksheet ? (
+      {selectedWorksheet ? (
             <>
               <h2>{selectedWorksheet.title}</h2>
               {selectedWorksheet.instructions && (
@@ -181,6 +299,10 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
                   current_text: "",
                   status: "DRAFT" as const,
                 };
+                const submitted = ans.status === "SUBMITTED";
+                const suggestions = (ans.versions || []).filter(
+                  (v: AnswerVersion) => v.is_teacher_suggestion
+                );
                 return (
                   <div
                     key={q.id}
@@ -192,26 +314,61 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
                   >
                     <p>{q.prompt}</p>
                     <textarea
-                      style={{ width: "100%", minHeight: 80 }}
+                      style={{
+                        width: "100%",
+                        minHeight: 80,
+                        opacity: submitted ? 0.9 : 1,
+                      }}
                       value={ans.current_text}
                       onChange={e => handleAnswerChange(q, e.target.value)}
+                      readOnly={submitted}
                     />
-                    <button
-                      style={{ marginTop: "0.5rem" }}
-                      onClick={() => handleSubmitAnswer(q)}
-                    >
-                      Submit answer
-                    </button>
+                    {!submitted && (
+                      <button
+                        style={{ marginTop: "0.5rem" }}
+                        onClick={() => handleSubmitAnswer(q)}
+                      >
+                        Submit answer
+                      </button>
+                    )}
+                    {submitted && (
+                      <p style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#666" }}>
+                        Submitted
+                      </p>
+                    )}
+                    {suggestions.length > 0 && (
+                      <div style={{ marginTop: "0.75rem", borderTop: "1px solid #ddd", paddingTop: "0.5rem" }}>
+                        <strong>Teacher suggestions:</strong>
+                        {suggestions.map((v: AnswerVersion) => (
+                          <div key={v.id} style={{ marginTop: "0.25rem" }}>
+                            <pre
+                              style={{
+                                background: "#fff8e1",
+                                padding: "0.5rem",
+                                fontSize: "0.9rem",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {v.text}
+                            </pre>
+                            <button
+                              style={{ marginTop: "0.25rem", fontSize: "0.85rem" }}
+                              onClick={() => ans.id && handleApplySuggestion(ans.id, v.id)}
+                            >
+                              Apply suggestion
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </>
-          ) : (
-            <p>Select a worksheet to begin.</p>
-          )}
-        </main>
-      </div>
-    </div>
+      ) : (
+        <p>Select a worksheet to begin.</p>
+      )}
+    </AppLayout>
   );
 }
 
@@ -362,45 +519,35 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     }
   }
 
-  return (
-    <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <h1>Mtihani</h1>
-          <p>
-            Logged in as <strong>{user.username}</strong> ({user.role})
-          </p>
+  const teacherSidebar = (
+    <>
+      <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
+        Worksheets
+      </h3>
+      {worksheets.map(w => (
+        <div
+          key={w.id}
+          onClick={() => setSelectedWorksheetId(w.id)}
+          style={{
+            padding: "0.5rem 1rem",
+            cursor: "pointer",
+            background:
+              w.id === selectedWorksheetId
+                ? "var(--mtihani-sidebar-active)"
+                : "transparent",
+          }}
+        >
+          {w.title}
         </div>
-        <button onClick={onLogout}>Logout</button>
-      </header>
+      ))}
+    </>
+  );
 
-      <hr />
-
+  return (
+    <AppLayout user={user} onLogout={onLogout} sidebar={teacherSidebar} title="Teacher">
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <div style={{ display: "flex", gap: "2rem", marginTop: "1rem" }}>
-        <aside style={{ minWidth: 220 }}>
-          <h2>Worksheets</h2>
-          {worksheets.map(w => (
-            <div
-              key={w.id}
-              onClick={() => setSelectedWorksheetId(w.id)}
-              style={{
-                padding: "0.5rem",
-                marginBottom: "0.25rem",
-                cursor: "pointer",
-                background:
-                  w.id === selectedWorksheetId ? "#eef" : "transparent",
-              }}
-            >
-              {w.title}
-            </div>
-          ))}
-        </aside>
-
-        <main style={{ flex: 1 }}>
-          {selectedWorksheet && (
+      {selectedWorksheet && (
             <section style={{ marginBottom: "1.5rem" }}>
               <h2>Questions in this worksheet</h2>
               <ul>
@@ -540,9 +687,7 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               ))}
             </section>
           )}
-        </main>
-      </div>
-    </div>
+    </AppLayout>
   );
 }
 
@@ -649,91 +794,79 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
 
   const selectedWorkbook = workbooks.find((w: any) => w.id === selectedWorkbookId) || null;
 
-  return (
-    <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <h1>Mtihani</h1>
-          <p>
-            Logged in as <strong>{user.username}</strong> ({user.role})
-          </p>
-        </div>
-        <button onClick={onLogout}>Logout</button>
-      </header>
-
-      <hr />
-
-      {loading && <p>Loading…</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <div style={{ display: "flex", gap: "2rem", marginTop: "1rem" }}>
-        {/* Left: Workbooks / Worksheets management */}
-        <aside style={{ minWidth: 280 }}>
-          <h2>Workbooks</h2>
-          <form onSubmit={handleCreateWorkbook}>
+  const directorSidebar = (
+    <>
+      <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
+        Workbooks
+      </h3>
+      <form onSubmit={handleCreateWorkbook} style={{ padding: "0 1rem" }}>
+        <input
+          placeholder="New workbook"
+          value={newWorkbookTitle}
+          onChange={e => setNewWorkbookTitle(e.target.value)}
+          style={{ width: "100%" }}
+        />
+        <button type="submit" style={{ marginTop: "0.5rem" }}>
+          Create
+        </button>
+      </form>
+      <div style={{ marginTop: "0.75rem" }}>
+        {workbooks.map((w: any) => (
+          <div
+            key={w.id}
+            onClick={() => setSelectedWorkbookId(w.id)}
+            style={{
+              padding: "0.5rem 1rem",
+              cursor: "pointer",
+              background:
+                w.id === selectedWorkbookId
+                  ? "var(--mtihani-sidebar-active)"
+                  : "transparent",
+            }}
+          >
+            {w.title}
+          </div>
+        ))}
+      </div>
+      {selectedWorkbook && (
+        <div style={{ marginTop: "0.75rem", padding: "0 1rem" }}>
+          <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", opacity: 0.9 }}>
+            Worksheets in "{selectedWorkbook.title}"
+          </h4>
+          <ul style={{ margin: 0, paddingLeft: "1rem", fontSize: "0.9rem" }}>
+            {selectedWorkbook.worksheets.map((ws: any) => (
+              <li key={ws.id}>
+                {ws.title} {ws.published ? "(pub)" : "(draft)"}
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={handleCreateWorksheet} style={{ marginTop: "0.5rem" }}>
             <input
-              placeholder="New workbook title"
-              value={newWorkbookTitle}
-              onChange={e => setNewWorkbookTitle(e.target.value)}
-              style={{ width: "100%" }}
+              placeholder="New worksheet"
+              value={newWorksheetTitle}
+              onChange={e => setNewWorksheetTitle(e.target.value)}
+              style={{ width: "100%", marginBottom: "0.25rem" }}
             />
-            <button type="submit" style={{ marginTop: "0.5rem" }}>
-              Create workbook
+            <textarea
+              placeholder="Instructions (opt)"
+              value={newWorksheetInstructions}
+              onChange={e => setNewWorksheetInstructions(e.target.value)}
+              style={{ width: "100%", minHeight: 48 }}
+            />
+            <button type="submit" style={{ marginTop: "0.25rem" }}>
+              Create worksheet
             </button>
           </form>
+        </div>
+      )}
+    </>
+  );
 
-          <div style={{ marginTop: "1rem" }}>
-            {workbooks.map((w: any) => (
-              <div
-                key={w.id}
-                onClick={() => setSelectedWorkbookId(w.id)}
-                style={{
-                  padding: "0.5rem",
-                  marginBottom: "0.25rem",
-                  cursor: "pointer",
-                  background: w.id === selectedWorkbookId ? "#eef" : "transparent",
-                }}
-              >
-                {w.title}
-              </div>
-            ))}
-          </div>
-
-          {selectedWorkbook && (
-            <div style={{ marginTop: "1rem" }}>
-              <h3>Worksheets in "{selectedWorkbook.title}"</h3>
-              <ul>
-                {selectedWorkbook.worksheets.map((ws: any) => (
-                  <li key={ws.id}>
-                    {ws.title} {ws.published ? "(published)" : "(draft)"}
-                  </li>
-                ))}
-              </ul>
-
-              <form onSubmit={handleCreateWorksheet} style={{ marginTop: "0.5rem" }}>
-                <input
-                  placeholder="New worksheet title"
-                  value={newWorksheetTitle}
-                  onChange={e => setNewWorksheetTitle(e.target.value)}
-                  style={{ width: "100%", marginBottom: "0.5rem" }}
-                />
-                <textarea
-                  placeholder="Instructions (optional)"
-                  value={newWorksheetInstructions}
-                  onChange={e => setNewWorksheetInstructions(e.target.value)}
-                  style={{ width: "100%", minHeight: 60 }}
-                />
-                <button type="submit" style={{ marginTop: "0.5rem" }}>
-                  Create worksheet
-                </button>
-              </form>
-            </div>
-          )}
-        </aside>
-
-        {/* Right: Grades and approvals */}
-        <main style={{ flex: 1 }}>
-          <h2>Worksheet Grades</h2>
+  return (
+    <AppLayout user={user} onLogout={onLogout} sidebar={directorSidebar} title="Director">
+      {loading && <p>Loading…</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      <h2>Worksheet Grades</h2>
           {grades.map(g => (
             <div
               key={g.id}
@@ -770,10 +903,8 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
               )}
             </div>
           ))}
-          {grades.length === 0 && !loading && <p>No worksheet grades yet.</p>}
-        </main>
-      </div>
-    </div>
+      {grades.length === 0 && !loading && <p>No worksheet grades yet.</p>}
+    </AppLayout>
   );
 }
 
