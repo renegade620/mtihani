@@ -70,6 +70,9 @@ class WorksheetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Worksheet.objects.select_related("workbook")
+        # Students only see published assignments (reimagined MVP)
+        if getattr(user, "role", None) == User.Role.STUDENT:
+            qs = qs.filter(published=True)
         if getattr(user, "organization_id", None):
             qs = qs.filter(workbook__organization=user.organization)
         return qs

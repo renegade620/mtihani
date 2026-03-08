@@ -9,6 +9,7 @@ __pycache__/
 # Django / local data
 db.sqlite3
 media/
+staticfiles/
 
 # Node / frontend (for later)
 node_modules/
@@ -18,4 +19,7 @@ build/
 # Env files
 .env
 .env.*
+
+
+**/__pycache__/
 

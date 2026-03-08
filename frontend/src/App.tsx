@@ -36,10 +36,22 @@ function AppLayout({
             <span style={{ color: "#666", fontSize: "0.9rem" }}>/{title}</span>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <span style={{ fontSize: "0.9rem", color: "#666" }}>{user.username}</span>
+          <span
+            style={{
+              background: "var(--mtihani-status-approved)",
+              color: "#fff",
+              padding: "0.2rem 0.5rem",
+              borderRadius: 9999,
+              fontSize: "0.75rem",
+              fontWeight: 600,
+            }}
+          >
+            {user.role}
+          </span>
           <button onClick={onLogout} style={{ padding: "0.25rem 0.75rem" }}>
-            Logout
+            Logout →
           </button>
         </div>
       </header>
@@ -249,7 +261,7 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const studentSidebar = (
     <>
       <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
-        Worksheets
+        Assignments
       </h3>
       {worksheets.map(w => (
         <div
@@ -274,6 +286,40 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     <AppLayout user={user} onLogout={onLogout} sidebar={studentSidebar} title="Student">
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
+      {worksheetGrades.length > 0 && (
+        <section style={{ marginBottom: "1.25rem" }}>
+          <h3 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>My Grades</h3>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+            {worksheetGrades.map((g: any) => (
+              <div
+                key={g.id}
+                style={{
+                  padding: "0.75rem 1rem",
+                  background: "var(--mtihani-card-bg)",
+                  border: "1px solid var(--mtihani-card-border)",
+                  borderRadius: 8,
+                  minWidth: 180,
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: "0.35rem" }}>{g.worksheet_title ?? `Assignment #${g.worksheet}`}</strong>
+                <span style={{ marginRight: "0.5rem" }}>{g.score_total}</span>
+                <span
+                  style={{
+                    padding: "0.15rem 0.5rem",
+                    borderRadius: 9999,
+                    fontSize: "0.8rem",
+                    fontWeight: 500,
+                    background: g.status === "PENDING_APPROVAL" ? "#fef3c7" : g.status === "APPROVED" ? "#d1fae5" : "#fee2e2",
+                    color: g.status === "PENDING_APPROVAL" ? "var(--mtihani-status-pending)" : g.status === "APPROVED" ? "var(--mtihani-status-approved)" : "var(--mtihani-status-rejected)",
+                  }}
+                >
+                  {g.status === "PENDING_APPROVAL" ? "Pending Approval" : g.status === "APPROVED" ? "Approved" : "Rejected"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {selectedWorksheet ? (
             <>
               <h2>{selectedWorksheet.title}</h2>
@@ -283,18 +329,26 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               {currentWorksheetGrade && (
                 <div
                   style={{
-                    border: "1px solid #4caf50",
-                    background: "#e8f5e9",
-                    padding: "0.5rem",
+                    border: "1px solid var(--mtihani-status-approved)",
+                    background: "#ecfdf5",
+                    padding: "0.75rem",
                     marginBottom: "0.75rem",
+                    borderRadius: 8,
                   }}
                 >
-                  <strong>Your grade:</strong> {currentWorksheetGrade.score_total}{" "}
-                  ({currentWorksheetGrade.status})
+                  <strong>Your grade:</strong> {currentWorksheetGrade.score_total}
                   {currentWorksheetGrade.status === "PENDING_APPROVAL" && (
-                    <span style={{ display: "block", fontSize: "0.85rem", color: "#2e7d32", marginTop: "0.25rem" }}>
-                      Waiting for Director to approve.
-                    </span>
+                    <>
+                      <span style={{ display: "block", fontSize: "0.9rem", color: "#047857", marginTop: "0.35rem" }}>
+                        ⏳ Waiting for Director to approve.
+                      </span>
+                    </>
+                  )}
+                  {currentWorksheetGrade.status === "APPROVED" && (
+                    <span style={{ display: "inline-block", marginLeft: "0.5rem", padding: "0.15rem 0.5rem", background: "#d1fae5", color: "var(--mtihani-status-approved)", borderRadius: 9999, fontSize: "0.8rem" }}>Approved</span>
+                  )}
+                  {currentWorksheetGrade.status === "REJECTED" && (
+                    <span style={{ display: "inline-block", marginLeft: "0.5rem", padding: "0.15rem 0.5rem", background: "#fee2e2", color: "var(--mtihani-status-rejected)", borderRadius: 9999, fontSize: "0.8rem" }}>Rejected</span>
                   )}
                 </div>
               )}
@@ -371,7 +425,7 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               })}
             </>
       ) : (
-        <p>Select a worksheet to begin.</p>
+        <p>Select an assignment to begin.</p>
       )}
     </AppLayout>
   );
@@ -387,6 +441,10 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [newQuestionPrompt, setNewQuestionPrompt] = useState("");
   const [newQuestionMaxScore, setNewQuestionMaxScore] = useState("");
   const [worksheetTotalScore, setWorksheetTotalScore] = useState<Record<number, string>>({});
+  const [worksheetGrades, setWorksheetGrades] = useState<any[]>([]);
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
+  const [editQuestionPrompt, setEditQuestionPrompt] = useState("");
+  const [editQuestionMaxScore, setEditQuestionMaxScore] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -432,6 +490,19 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       }
     }
     loadAnswers();
+  }, [selectedWorksheetId]);
+
+  useEffect(() => {
+    async function loadGrades() {
+      if (!selectedWorksheetId) return;
+      try {
+        const data = await apiFetch("/api/worksheet-grades/");
+        setWorksheetGrades(data.filter((g: any) => g.worksheet === selectedWorksheetId));
+      } catch {
+        setWorksheetGrades([]);
+      }
+    }
+    loadGrades();
   }, [selectedWorksheetId]);
 
   const selectedWorksheet =
@@ -527,6 +598,8 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
           score_total,
         }),
       });
+      const data = await apiFetch("/api/worksheet-grades/");
+      setWorksheetGrades(data.filter((g: any) => g.worksheet === selectedWorksheetId));
     } catch (e: any) {
       setError(e.message ?? "Failed to save worksheet grade");
     } finally {
@@ -534,10 +607,52 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     }
   }
 
+  async function handleUpdateQuestion(id: number) {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/questions/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          prompt: editQuestionPrompt.trim() || undefined,
+          max_score: editQuestionMaxScore !== "" ? parseFloat(editQuestionMaxScore) : undefined,
+        }),
+      });
+      setEditingQuestionId(null);
+      const ws = await apiFetch("/api/worksheets/");
+      setWorksheets(ws);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to update question");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteQuestion(id: number) {
+    if (!window.confirm("Delete this question? Answers to it will be affected.")) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/questions/${id}/`, { method: "DELETE" });
+      setEditingQuestionId(null);
+      const ws = await apiFetch("/api/worksheets/");
+      setWorksheets(ws);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to delete question");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getWorksheetGradeStatusForStudent(studentId: number): string | null {
+    const g = worksheetGrades.find((x: any) => x.student === studentId);
+    return g ? g.status : null;
+  }
+
   const teacherSidebar = (
     <>
       <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
-        Worksheets
+        Assignments
       </h3>
       {worksheets.map(w => (
         <div
@@ -564,156 +679,181 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       {error && <p style={{ color: "red" }}>{error}</p>}
       {selectedWorksheet && (
             <section style={{ marginBottom: "1.5rem" }}>
-              <h2>Questions in this worksheet</h2>
-              <ul>
-                {selectedWorksheet.questions.map(q => (
-                  <li key={q.id}>
-                    {q.prompt} (max {q.max_score})
+              <h2>Questions in this assignment</h2>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {selectedWorksheet.questions.map((q: any) => (
+                  <li key={q.id} style={{ marginBottom: "0.5rem", padding: "0.5rem", background: "#f8f9fa", borderRadius: 6 }}>
+                    {editingQuestionId === q.id ? (
+                      <div>
+                        <input value={editQuestionPrompt} onChange={e => setEditQuestionPrompt(e.target.value)} placeholder="Question prompt" style={{ width: "100%", marginBottom: "0.25rem" }} />
+                        <input type="number" step="0.5" value={editQuestionMaxScore} onChange={e => setEditQuestionMaxScore(e.target.value)} placeholder="Max" style={{ width: "6rem", marginRight: "0.5rem" }} />
+                        <button type="button" onClick={() => handleUpdateQuestion(q.id)}>Save</button>
+                        <button type="button" onClick={() => setEditingQuestionId(null)}>Cancel</button>
+                        <button type="button" onClick={() => handleDeleteQuestion(q.id)} style={{ color: "var(--mtihani-btn-reject)" }}>Delete</button>
+                      </div>
+                    ) : (
+                      <>
+                        {q.prompt} <span style={{ color: "#64748b" }}>(Max: {q.max_score})</span>
+                        <div style={{ marginTop: "0.25rem" }}>
+                          <button type="button" onClick={() => { setEditingQuestionId(q.id); setEditQuestionPrompt(q.prompt); setEditQuestionMaxScore(String(q.max_score)); }} style={{ fontSize: "0.8rem" }}>Edit</button>
+                          <button type="button" onClick={() => handleDeleteQuestion(q.id)} style={{ fontSize: "0.8rem", marginLeft: "0.25rem", color: "var(--mtihani-btn-reject)" }}>Delete</button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
-              <form onSubmit={handleCreateQuestion} style={{ marginTop: "0.5rem" }}>
+              <form onSubmit={handleCreateQuestion} style={{ marginTop: "0.75rem" }}>
+                <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Question prompt</label>
                 <textarea
-                  placeholder="New question prompt"
+                  placeholder="Question prompt"
                   value={newQuestionPrompt}
                   onChange={e => setNewQuestionPrompt(e.target.value)}
-                  style={{ width: "100%", minHeight: 60 }}
+                  style={{ width: "100%", minHeight: 60, marginBottom: "0.5rem" }}
                 />
+                <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.25rem" }}>Max</label>
                 <input
                   type="number"
                   step="0.5"
-                  placeholder="Max score (optional)"
+                  placeholder="10"
                   value={newQuestionMaxScore}
                   onChange={e => setNewQuestionMaxScore(e.target.value)}
-                  style={{ marginTop: "0.5rem" }}
+                  style={{ width: "6rem", marginRight: "0.5rem" }}
                 />
-                <button type="submit" style={{ marginTop: "0.5rem" }}>
-                  Add question
-                </button>
+                <button type="submit" style={{ background: "var(--mtihani-status-approved)", color: "#fff", border: "none", padding: "0.35rem 0.6rem", borderRadius: 6 }}>+ Add</button>
               </form>
             </section>
           )}
 
-          <h2>Student Answers</h2>
-          {answers.map(a => (
-            <div
-              key={a.id}
-              style={{
-                border: "1px solid #ccc",
-                padding: "0.75rem",
-                marginBottom: "0.75rem",
-              }}
-            >
-              <p>
-                <strong>Student:</strong> {a.student_username ?? a.student}
-              </p>
-              <p>
-                <strong>Current answer:</strong>
-              </p>
-              <pre
+          <h2>Submissions</h2>
+          {answers.length === 0 && <p>No submissions yet for this assignment.</p>}
+          {(() => {
+            const byStudent = new Map<number, { username: string; answers: any[] }>();
+            for (const a of answers) {
+              const id = a.student;
+              if (!byStudent.has(id)) byStudent.set(id, { username: String(a.student_username ?? id), answers: [] });
+              byStudent.get(id)!.answers.push(a);
+            }
+            return Array.from(byStudent.entries()).map(([studentId, { username, answers: studentAnswers }]) => (
+              <section
+                key={studentId}
                 style={{
-                  background: "#f7f7f7",
-                  padding: "0.5rem",
-                  whiteSpace: "pre-wrap",
+                  border: "1px solid var(--mtihani-card-border)",
+                  borderRadius: 8,
+                  padding: "1rem",
+                  marginBottom: "1.25rem",
+                  background: "var(--mtihani-card-bg)",
                 }}
               >
-                {a.current_text}
-              </pre>
-
-              <label>Suggestion</label>
-              <textarea
-                style={{ width: "100%", minHeight: 60 }}
-                value={suggestText[a.id] || ""}
-                onChange={e =>
-                  setSuggestText(prev => ({ ...prev, [a.id]: e.target.value }))
-                }
-              />
-              <button
-                style={{ marginTop: "0.5rem" }}
-                onClick={() => handleSuggest(a.id)}
-              >
-                Send suggestion
-              </button>
-              <div style={{ marginTop: "0.75rem" }}>
-                <h3 style={{ margin: 0, fontSize: "1rem" }}>Grade</h3>
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-                  <input
-                    type="number"
-                    step="0.5"
-                    placeholder="Score"
-                    value={gradeScore[a.id] || ""}
-                    onChange={e =>
-                      setGradeScore(prev => ({ ...prev, [a.id]: e.target.value }))
-                    }
-                    style={{ width: "6rem" }}
-                  />
-                  <input
-                    placeholder="Feedback"
-                    value={gradeFeedback[a.id] || ""}
-                    onChange={e =>
-                      setGradeFeedback(prev => ({
-                        ...prev,
-                        [a.id]: e.target.value,
-                      }))
-                    }
-                    style={{ flex: 1 }}
-                  />
-                  <button onClick={() => handleGrade(a.id)}>Save</button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {answers.length === 0 && <p>No answers yet for this worksheet.</p>}
-
-          {answers.length > 0 && (
-            <section style={{ marginTop: "1.5rem" }}>
-              <h2>Final worksheet grades</h2>
-              {Array.from(new Set(answers.map(a => a.student))).map(studentId => (
-                <div
-                  key={studentId}
-                  style={{
-                    border: "1px dashed #aaa",
-                    padding: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <strong>Student {answers.find((x: any) => x.student === studentId)?.student_username ?? studentId}</strong>
+                <h3 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>{username}</h3>
+                {studentAnswers.map((a: any) => (
                   <div
-                    style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}
+                    key={a.id}
+                    style={{
+                      border: "1px solid #ddd",
+                      padding: "0.75rem",
+                      marginBottom: "0.75rem",
+                      borderRadius: 6,
+                    }}
                   >
-                    <input
-                      type="number"
-                      step="0.5"
-                      placeholder="Total score"
-                      value={worksheetTotalScore[studentId] || ""}
+                    <p style={{ margin: "0 0 0.25rem", fontSize: "0.85rem", color: "#64748b" }}>
+                      {selectedWorksheet?.questions.find((q: any) => q.id === a.question)?.prompt ?? `Question #${a.question}`}
+                    </p>
+                    <pre
+                      style={{
+                        background: "#f7f7f7",
+                        padding: "0.5rem",
+                        whiteSpace: "pre-wrap",
+                        margin: "0.5rem 0 0",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      {a.current_text}
+                    </pre>
+                    <label style={{ display: "block", marginTop: "0.5rem", fontSize: "0.85rem" }}>Suggestion for student...</label>
+                    <textarea
+                      placeholder="Suggestion for student..."
+                      style={{ width: "100%", minHeight: 50, marginTop: "0.25rem" }}
+                      value={suggestText[a.id] || ""}
                       onChange={e =>
-                        setWorksheetTotalScore(prev => ({
-                          ...prev,
-                          [studentId]: e.target.value,
-                        }))
+                        setSuggestText(prev => ({ ...prev, [a.id]: e.target.value }))
                       }
-                      style={{ width: "7rem" }}
                     />
-                    <button onClick={() => handleWorksheetGrade(studentId)}>
-                      Save final grade
+                    <button
+                      style={{ marginTop: "0.35rem", fontSize: "0.85rem" }}
+                      onClick={() => handleSuggest(a.id)}
+                    >
+                      Suggest
                     </button>
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <span style={{ fontSize: "0.85rem" }}>Grade: </span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Score"
+                        value={gradeScore[a.id] || ""}
+                        onChange={e =>
+                          setGradeScore(prev => ({ ...prev, [a.id]: e.target.value }))
+                        }
+                        style={{ width: "5rem", marginRight: "0.5rem" }}
+                      />
+                      <input
+                        placeholder="Feedback"
+                        value={gradeFeedback[a.id] || ""}
+                        onChange={e =>
+                          setGradeFeedback(prev => ({ ...prev, [a.id]: e.target.value }))
+                        }
+                        style={{ flex: 1, minWidth: "8rem", marginRight: "0.5rem" }}
+                      />
+                      <button onClick={() => handleGrade(a.id)}>Save</button>
+                    </div>
                   </div>
+                ))}
+                <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px dashed #ccc" }}>
+                  <strong>Final Assignment Grade: </strong>
+                  {getWorksheetGradeStatusForStudent(studentId) === "APPROVED" ? (
+                    <span style={{ marginLeft: "0.5rem", padding: "0.2rem 0.5rem", background: "#d1fae5", color: "var(--mtihani-status-approved)", borderRadius: 9999, fontSize: "0.85rem" }}>Approved</span>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Total score"
+                        value={worksheetTotalScore[studentId] || ""}
+                        onChange={e =>
+                          setWorksheetTotalScore(prev => ({ ...prev, [studentId]: e.target.value }))
+                        }
+                        style={{ width: "7rem", marginLeft: "0.5rem", marginRight: "0.5rem" }}
+                      />
+                      <button onClick={() => handleWorksheetGrade(studentId)} style={{ background: "var(--mtihani-status-approved)", color: "#fff", border: "none", padding: "0.35rem 0.6rem", borderRadius: 6 }}>Save Final Grade</button>
+                    </>
+                  )}
                 </div>
-              ))}
-            </section>
-          )}
+              </section>
+            ));
+          })()}
     </AppLayout>
   );
 }
 
+type DirectorTab = "grades" | "assignments";
+
 function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const [directorTab, setDirectorTab] = useState<DirectorTab>("grades");
   const [grades, setGrades] = useState<any[]>([]);
   const [workbooks, setWorkbooks] = useState<any[]>([]);
   const [selectedWorkbookId, setSelectedWorkbookId] = useState<number | null>(null);
 
   const [newWorkbookTitle, setNewWorkbookTitle] = useState("");
+  const [newWorkbookDescription, setNewWorkbookDescription] = useState("");
   const [newWorksheetTitle, setNewWorksheetTitle] = useState("");
   const [newWorksheetInstructions, setNewWorksheetInstructions] = useState("");
+  const [editingWorkbookId, setEditingWorkbookId] = useState<number | null>(null);
+  const [editingWorksheetId, setEditingWorksheetId] = useState<number | null>(null);
+  const [editWorkbookTitle, setEditWorkbookTitle] = useState("");
+  const [editWorkbookDescription, setEditWorkbookDescription] = useState("");
+  const [editWorksheetTitle, setEditWorksheetTitle] = useState("");
+  const [editWorksheetInstructions, setEditWorksheetInstructions] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -770,9 +910,10 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
       setError(null);
       await apiFetch("/api/workbooks/", {
         method: "POST",
-        body: JSON.stringify({ title: newWorkbookTitle, description: "" }),
+        body: JSON.stringify({ title: newWorkbookTitle, description: newWorkbookDescription }),
       });
       setNewWorkbookTitle("");
+      setNewWorkbookDescription("");
       await loadWorkbooks();
     } catch (e: any) {
       setError(e.message ?? "Failed to create workbook");
@@ -807,73 +948,120 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
     }
   }
 
+  async function handleUpdateWorkbook(id: number) {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/workbooks/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: editWorkbookTitle.trim() || undefined, description: editWorkbookDescription }),
+      });
+      setEditingWorkbookId(null);
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to update workbook");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateWorksheet(id: number) {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/worksheets/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: editWorksheetTitle.trim() || undefined, instructions: editWorksheetInstructions }),
+      });
+      setEditingWorksheetId(null);
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to update assignment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteWorkbook(id: number) {
+    if (!window.confirm("Delete this workbook and all its assignments?")) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/workbooks/${id}/`, { method: "DELETE" });
+      if (selectedWorkbookId === id) setSelectedWorkbookId(workbooks.find((w: any) => w.id !== id)?.id ?? null);
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to delete workbook");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteWorksheet(id: number) {
+    if (!window.confirm("Delete this assignment and all its questions and answers?")) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/worksheets/${id}/`, { method: "DELETE" });
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to delete assignment");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function startEditWorkbook(w: { id: number; title: string; description?: string }) {
+    setEditingWorkbookId(w.id);
+    setEditWorkbookTitle(w.title);
+    setEditWorkbookDescription(w.description ?? "");
+  }
+
+  function startEditWorksheet(ws: { id: number; title: string; instructions?: string }) {
+    setEditingWorksheetId(ws.id);
+    setEditWorksheetTitle(ws.title);
+    setEditWorksheetInstructions(ws.instructions ?? "");
+  }
+
   const selectedWorkbook = workbooks.find((w: any) => w.id === selectedWorkbookId) || null;
 
   const directorSidebar = (
     <>
-      <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>
-        Workbooks
-      </h3>
-      <form onSubmit={handleCreateWorkbook} style={{ padding: "0 1rem" }}>
-        <input
-          placeholder="New workbook"
-          value={newWorkbookTitle}
-          onChange={e => setNewWorkbookTitle(e.target.value)}
-          style={{ width: "100%" }}
-        />
-        <button type="submit" style={{ marginTop: "0.5rem" }}>
-          Create
+      <h3 style={{ margin: "0 1rem 0.75rem", fontSize: "0.85rem", opacity: 0.9 }}>Director</h3>
+      <div style={{ padding: "0 1rem 0.5rem", display: "flex", gap: "0.25rem" }}>
+        <button
+          type="button"
+          onClick={() => setDirectorTab("grades")}
+          style={{
+            flex: 1,
+            padding: "0.35rem 0.5rem",
+            fontSize: "0.8rem",
+            background: directorTab === "grades" ? "var(--mtihani-sidebar-active)" : "transparent",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 4,
+            color: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          Grades to approve
         </button>
-      </form>
-      <div style={{ marginTop: "0.75rem" }}>
-        {workbooks.map((w: any) => (
-          <div
-            key={w.id}
-            onClick={() => setSelectedWorkbookId(w.id)}
-            style={{
-              padding: "0.5rem 1rem",
-              cursor: "pointer",
-              background:
-                w.id === selectedWorkbookId
-                  ? "var(--mtihani-sidebar-active)"
-                  : "transparent",
-            }}
-          >
-            {w.title}
-          </div>
-        ))}
+        <button
+          type="button"
+          onClick={() => setDirectorTab("assignments")}
+          style={{
+            flex: 1,
+            padding: "0.35rem 0.5rem",
+            fontSize: "0.8rem",
+            background: directorTab === "assignments" ? "var(--mtihani-sidebar-active)" : "transparent",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 4,
+            color: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          Assignments
+        </button>
       </div>
-      {selectedWorkbook && (
-        <div style={{ marginTop: "0.75rem", padding: "0 1rem" }}>
-          <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", opacity: 0.9 }}>
-            Worksheets in "{selectedWorkbook.title}"
-          </h4>
-          <ul style={{ margin: 0, paddingLeft: "1rem", fontSize: "0.9rem" }}>
-            {selectedWorkbook.worksheets.map((ws: any) => (
-              <li key={ws.id}>
-                {ws.title} {ws.published ? "(pub)" : "(draft)"}
-              </li>
-            ))}
-          </ul>
-          <form onSubmit={handleCreateWorksheet} style={{ marginTop: "0.5rem" }}>
-            <input
-              placeholder="New worksheet"
-              value={newWorksheetTitle}
-              onChange={e => setNewWorksheetTitle(e.target.value)}
-              style={{ width: "100%", marginBottom: "0.25rem" }}
-            />
-            <textarea
-              placeholder="Instructions (opt)"
-              value={newWorksheetInstructions}
-              onChange={e => setNewWorksheetInstructions(e.target.value)}
-              style={{ width: "100%", minHeight: 48 }}
-            />
-            <button type="submit" style={{ marginTop: "0.25rem" }}>
-              Create worksheet
-            </button>
-          </form>
-        </div>
-      )}
     </>
   );
 
@@ -890,50 +1078,229 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
     }
   }
 
+  async function handleTogglePublish(worksheetId: number, currentlyPublished: boolean) {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/worksheets/${worksheetId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ published: !currentlyPublished }),
+      });
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to update publish status");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <AppLayout user={user} onLogout={onLogout} sidebar={directorSidebar} title="Director">
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <h2>Worksheet Grades</h2>
-      {grades.length === 0 && !loading && (
-        <p style={{ color: "#64748b" }}>No worksheet grades yet. Teachers assign final grades from the Teacher view.</p>
+      {directorTab === "grades" && (
+        <>
+          <h2>Grades to approve</h2>
+          {grades.length === 0 && !loading && (
+            <p style={{ color: "#64748b" }}>No grades to approve yet. Teachers set final grades from the Teacher view.</p>
+          )}
+          {grades.map(g => (
+            <div
+              key={g.id}
+              style={{
+                border: "1px solid var(--mtihani-card-border)",
+                borderRadius: 8,
+                padding: "1rem",
+                marginBottom: "0.75rem",
+                background: g.status === "PENDING_APPROVAL" ? "#fffbeb" : "#fff",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "0.75rem",
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                <strong>Assignment:</strong> {g.worksheet_title ?? `#${g.worksheet}`}
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>Student:</strong> {g.student_username ?? g.student}
+              </p>
+              <p style={{ margin: 0 }}>
+                <strong>Score:</strong> {g.score_total}
+              </p>
+              <span
+                style={{
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: 9999,
+                  fontSize: "0.8rem",
+                  fontWeight: 500,
+                  background:
+                    g.status === "PENDING_APPROVAL"
+                      ? "#fef3c7"
+                      : g.status === "APPROVED"
+                        ? "#d1fae5"
+                        : "#fee2e2",
+                  color:
+                    g.status === "PENDING_APPROVAL"
+                      ? "var(--mtihani-status-pending)"
+                      : g.status === "APPROVED"
+                        ? "var(--mtihani-status-approved)"
+                        : "var(--mtihani-status-rejected)",
+                }}
+              >
+                {g.status === "PENDING_APPROVAL" ? "Pending" : g.status === "APPROVED" ? "Approved" : "Rejected"}
+              </span>
+              <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
+                {g.status === "PENDING_APPROVAL" && (
+                  <>
+                    <button
+                      onClick={() => handleApprove(g.id, "APPROVED")}
+                      style={{ background: "var(--mtihani-btn-approve)", color: "#fff", border: "none", padding: "0.35rem 0.75rem", borderRadius: 6 }}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => handleApprove(g.id, "REJECTED")}
+                      style={{ background: "var(--mtihani-btn-reject)", color: "#fff", border: "none", padding: "0.35rem 0.75rem", borderRadius: 6 }}
+                    >
+                      ✕ Reject
+                    </button>
+                  </>
+                )}
+                {(g.status === "APPROVED" || g.status === "REJECTED") && (
+                  <button
+                    onClick={() => handleReopen(g.id)}
+                    style={{ background: "var(--mtihani-btn-reopen)", color: "#fff", border: "none", padding: "0.35rem 0.75rem", borderRadius: 6 }}
+                  >
+                    ↻ Reopen
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </>
       )}
-      {grades.map(g => (
-        <div
-          key={g.id}
-          style={{
-            border: "1px solid var(--mtihani-card-border)",
-            borderRadius: 8,
-            padding: "1rem",
-            marginBottom: "0.75rem",
-            background: g.status === "PENDING_APPROVAL" ? "#fffbeb" : "#fff",
-          }}
-        >
-          <p style={{ margin: "0 0 0.25rem" }}>
-            <strong>Worksheet:</strong> {g.worksheet_title ?? `#${g.worksheet}`}
-          </p>
-          <p style={{ margin: "0 0 0.25rem" }}>
-            <strong>Student:</strong> {g.student_username ?? g.student}
-          </p>
-          <p style={{ margin: "0 0 0.25rem" }}>
-            <strong>Total score:</strong> {g.score_total}
-          </p>
-          <p style={{ margin: "0 0 0.5rem" }}>
-            <strong>Status:</strong> {g.status}
-          </p>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button onClick={() => handleApprove(g.id, "APPROVED")}>
-              Approve
-            </button>
-            <button onClick={() => handleApprove(g.id, "REJECTED")}>
-              Reject
-            </button>
-            {(g.status === "APPROVED" || g.status === "REJECTED") && (
-              <button onClick={() => handleReopen(g.id)}>Reopen</button>
-            )}
-          </div>
+      {directorTab === "assignments" && (
+        <div>
+          <h2>Assignments</h2>
+          <section style={{ marginBottom: "1.5rem" }}>
+            <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>Create Workbook</h3>
+            <form onSubmit={handleCreateWorkbook} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxWidth: 400 }}>
+              <input
+                placeholder="Workbook title"
+                value={newWorkbookTitle}
+                onChange={e => setNewWorkbookTitle(e.target.value)}
+                style={{ padding: "0.4rem 0.5rem" }}
+              />
+              <input
+                placeholder="Description (optional)"
+                value={newWorkbookDescription}
+                onChange={e => setNewWorkbookDescription(e.target.value)}
+                style={{ padding: "0.4rem 0.5rem" }}
+              />
+              <button type="submit" style={{ background: "var(--mtihani-status-approved)", color: "#fff", border: "none", padding: "0.4rem 0.75rem", borderRadius: 6, alignSelf: "flex-start" }}>
+                + Add
+              </button>
+            </form>
+          </section>
+          {workbooks.length > 0 && (
+            <section style={{ marginBottom: "1.5rem" }}>
+              <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>Workbooks</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                {workbooks.map((w: any) => (
+                  <div
+                    key={w.id}
+                    onClick={() => setSelectedWorkbookId(w.id)}
+                    style={{
+                      border: selectedWorkbookId === w.id ? "2px solid var(--mtihani-status-approved)" : "1px solid var(--mtihani-card-border)",
+                      borderRadius: 8,
+                      padding: "1rem",
+                      minWidth: 180,
+                      maxWidth: 260,
+                      cursor: "pointer",
+                      background: "var(--mtihani-card-bg)",
+                    }}
+                  >
+                    {editingWorkbookId === w.id ? (
+                      <div onClick={e => e.stopPropagation()}>
+                        <input
+                          value={editWorkbookTitle}
+                          onChange={e => setEditWorkbookTitle(e.target.value)}
+                          placeholder="Title"
+                          style={{ width: "100%", marginBottom: "0.5rem" }}
+                        />
+                        <textarea
+                          value={editWorkbookDescription}
+                          onChange={e => setEditWorkbookDescription(e.target.value)}
+                          placeholder="Description"
+                          style={{ width: "100%", minHeight: 60, marginBottom: "0.5rem" }}
+                        />
+                        <div style={{ display: "flex", gap: "0.25rem" }}>
+                          <button type="button" onClick={() => handleUpdateWorkbook(w.id)}>Save</button>
+                          <button type="button" onClick={() => setEditingWorkbookId(null)}>Cancel</button>
+                          <button type="button" onClick={() => handleDeleteWorkbook(w.id)} style={{ color: "var(--mtihani-btn-reject)" }}>Delete</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <strong>{w.title}</strong>
+                        {w.description && <p style={{ margin: "0.35rem 0 0", fontSize: "0.9rem", color: "#64748b" }}>{w.description}</p>}
+                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.25rem" }}>
+                          <button type="button" onClick={e => { e.stopPropagation(); startEditWorkbook(w); }} style={{ fontSize: "0.8rem" }}>Edit</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+          {selectedWorkbook && (
+            <>
+              <section style={{ marginBottom: "1.5rem" }}>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>Create Assignment</h3>
+                <form onSubmit={handleCreateWorksheet} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+                  <input
+                    placeholder="Assignment title"
+                    value={newWorksheetTitle}
+                    onChange={e => setNewWorksheetTitle(e.target.value)}
+                    style={{ minWidth: 200, padding: "0.4rem 0.5rem" }}
+                  />
+                  <button type="submit" style={{ background: "var(--mtihani-status-approved)", color: "#fff", border: "none", padding: "0.4rem 0.75rem", borderRadius: 6 }}>
+                    + Add
+                  </button>
+                </form>
+              </section>
+              <section>
+                <h3 style={{ margin: "0 0 0.5rem", fontSize: "1rem" }}>Assignments in "{selectedWorkbook.title}"</h3>
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                  {selectedWorkbook.worksheets.map((ws: any) => (
+                    <li key={ws.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
+                      {editingWorksheetId === ws.id ? (
+                        <>
+                          <input value={editWorksheetTitle} onChange={e => setEditWorksheetTitle(e.target.value)} placeholder="Title" style={{ flex: 1, minWidth: 120 }} />
+                          <textarea value={editWorksheetInstructions} onChange={e => setEditWorksheetInstructions(e.target.value)} placeholder="Instructions" style={{ flex: 1, minWidth: 180, minHeight: 40 }} />
+                          <button type="button" onClick={() => handleUpdateWorksheet(ws.id)}>Save</button>
+                          <button type="button" onClick={() => setEditingWorksheetId(null)}>Cancel</button>
+                          <button type="button" onClick={() => handleDeleteWorksheet(ws.id)} style={{ color: "var(--mtihani-btn-reject)" }}>Delete</button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ flex: 1 }}>{ws.title} {ws.published ? "(published)" : "(draft)"}</span>
+                          <button type="button" onClick={e => { e.preventDefault(); handleTogglePublish(ws.id, ws.published); }} style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem", background: ws.published ? "var(--mtihani-btn-reject)" : "var(--mtihani-status-approved)", color: "#fff", border: "none", borderRadius: 4 }}>
+                            {ws.published ? "Unpublish" : "Publish"}
+                          </button>
+                          <button type="button" onClick={() => startEditWorksheet(ws)} style={{ fontSize: "0.8rem" }}>Edit</button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          )}
         </div>
-      ))}
+      )}
     </AppLayout>
   );
 }

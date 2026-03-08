@@ -6,6 +6,13 @@
   --mtihani-card-bg: #fff;
   --mtihani-card-border: #c7cdd1;
   --mtihani-text: #1c1d1e;
+  /* Status and actions (borrowed from screens) */
+  --mtihani-status-pending: #f59e0b;
+  --mtihani-status-approved: #10b981;
+  --mtihani-status-rejected: #ef4444;
+  --mtihani-btn-approve: #10b981;
+  --mtihani-btn-reject: #ef4444;
+  --mtihani-btn-reopen: #64748b;
 }
 
 body {
