@@ -26,7 +26,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
+export async function apiFetch<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token");
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -55,8 +55,8 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   try {
-    return await res.json();
+    return (await res.json()) as T;
   } catch {
-    return undefined;
+    return undefined as T;
   }
 }
