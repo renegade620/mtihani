@@ -224,6 +224,7 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [gradeFeedback, setGradeFeedback] = useState<Record<number, string>>({});
   const [newQuestionPrompt, setNewQuestionPrompt] = useState("");
   const [newQuestionMaxScore, setNewQuestionMaxScore] = useState("");
+  const [worksheetTotalScore, setWorksheetTotalScore] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -331,6 +332,31 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       setWorksheets(ws);
     } catch (e: any) {
       setError(e.message ?? "Failed to create question");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleWorksheetGrade(studentId: number) {
+    if (!selectedWorksheetId) return;
+    const totalStr = worksheetTotalScore[studentId];
+    if (!totalStr) return;
+    const score_total = parseFloat(totalStr);
+    if (Number.isNaN(score_total)) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch("/api/worksheet-grades/", {
+        method: "POST",
+        body: JSON.stringify({
+          worksheet: selectedWorksheetId,
+          student: studentId,
+          score_total,
+        }),
+      });
+    } catch (e: any) {
+      setError(e.message ?? "Failed to save worksheet grade");
     } finally {
       setLoading(false);
     }
@@ -476,6 +502,44 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
             </div>
           ))}
           {answers.length === 0 && <p>No answers yet for this worksheet.</p>}
+
+          {answers.length > 0 && (
+            <section style={{ marginTop: "1.5rem" }}>
+              <h2>Final worksheet grades</h2>
+              {Array.from(new Set(answers.map(a => a.student))).map(studentId => (
+                <div
+                  key={studentId}
+                  style={{
+                    border: "1px dashed #aaa",
+                    padding: "0.5rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <strong>Student {studentId}</strong>
+                  <div
+                    style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}
+                  >
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="Total score"
+                      value={worksheetTotalScore[studentId] || ""}
+                      onChange={e =>
+                        setWorksheetTotalScore(prev => ({
+                          ...prev,
+                          [studentId]: e.target.value,
+                        }))
+                      }
+                      style={{ width: "7rem" }}
+                    />
+                    <button onClick={() => handleWorksheetGrade(studentId)}>
+                      Save final grade
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
         </main>
       </div>
     </div>
