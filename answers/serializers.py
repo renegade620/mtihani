@@ -22,6 +22,8 @@ class AnswerVersionSerializer(serializers.ModelSerializer):
 
 class AnswerSerializer(serializers.ModelSerializer):
     versions = AnswerVersionSerializer(many=True, read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    grade_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Answer
@@ -29,11 +31,18 @@ class AnswerSerializer(serializers.ModelSerializer):
             "id",
             "question",
             "student",
+            "student_username",
             "current_text",
             "status",
             "created_at",
             "updated_at",
             "versions",
+            "grade_summary",
         ]
         read_only_fields = ["id", "student", "created_at", "updated_at", "versions"]
+
+    def get_grade_summary(self, obj):
+        if hasattr(obj, "grade") and obj.grade:
+            return {"score": str(obj.grade.score), "feedback": obj.grade.feedback or ""}
+        return None
 

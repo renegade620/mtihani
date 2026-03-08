@@ -20,13 +20,20 @@ class AnswerGradeSerializer(serializers.ModelSerializer):
 
 
 class WorksheetGradeSerializer(serializers.ModelSerializer):
+    worksheet_title = serializers.CharField(source="worksheet.title", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    teacher_username = serializers.CharField(source="teacher.username", read_only=True)
+
     class Meta:
         model = WorksheetGrade
         fields = [
             "id",
             "worksheet",
+            "worksheet_title",
             "student",
+            "student_username",
             "teacher",
+            "teacher_username",
             "score_total",
             "status",
             "created_at",

@@ -43,7 +43,18 @@ class AnswerGradeViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(teacher=self.request.user)
+        answer = serializer.validated_data["answer"]
+        teacher = self.request.user
+        obj, _ = AnswerGrade.objects.update_or_create(
+            answer=answer,
+            defaults={
+                "teacher": teacher,
+                "score": serializer.validated_data["score"],
+                "feedback": serializer.validated_data.get("feedback", ""),
+                "is_final_for_answer": serializer.validated_data.get("is_final_for_answer", True),
+            },
+        )
+        serializer.instance = obj
 
 
 class WorksheetGradeViewSet(viewsets.ModelViewSet):
@@ -66,12 +77,24 @@ class WorksheetGradeViewSet(viewsets.ModelViewSet):
             return qs.filter(teacher=user)
         if user.role == User.Role.STUDENT:
             return qs.filter(student=user)
+        # Director: in single-tenant MVP, see all worksheet grades (no org filter)
+        if user.role == User.Role.DIRECTOR:
+            return qs
         if user.organization_id:
             return qs.filter(student__organization=user.organization)
         return qs
 
     def perform_create(self, serializer):
         serializer.save(teacher=self.request.user)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        if instance.status == "APPROVED" and self.request.user.role != User.Role.DIRECTOR:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(
+                "Cannot change a grade that has been approved. Director must reopen it first."
+            )
+        serializer.save()
 
     @action(detail=True, methods=["post"], permission_classes=[IsDirectorOnly], url_path="approve")
     def approve(self, request, pk=None):
@@ -97,7 +120,15 @@ class WorksheetGradeViewSet(viewsets.ModelViewSet):
                 "comment": comment,
             },
         )
-        grade.status = f"{status_value}"
+        grade.status = status_value
         grade.save(update_fields=["status"])
         return Response(WorksheetGradeApprovalSerializer(approval).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsDirectorOnly], url_path="reopen")
+    def reopen(self, request, pk=None):
+        """Director reopens an approved/rejected grade so the teacher can revise it."""
+        grade = self.get_object()
+        grade.status = "PENDING_APPROVAL"
+        grade.save(update_fields=["status"])
+        return Response(WorksheetGradeSerializer(grade).data)
 

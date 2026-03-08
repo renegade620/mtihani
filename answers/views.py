@@ -40,7 +40,7 @@ class AnswerViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user: User = self.request.user
-        qs = Answer.objects.select_related("student", "question", "question__worksheet")
+        qs = Answer.objects.select_related("student", "question", "question__worksheet").prefetch_related("grade")
         worksheet_id = self.request.query_params.get("worksheet")
         if worksheet_id:
             qs = qs.filter(question__worksheet_id=worksheet_id)

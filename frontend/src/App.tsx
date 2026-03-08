@@ -291,6 +291,11 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
                 >
                   <strong>Your grade:</strong> {currentWorksheetGrade.score_total}{" "}
                   ({currentWorksheetGrade.status})
+                  {currentWorksheetGrade.status === "PENDING_APPROVAL" && (
+                    <span style={{ display: "block", fontSize: "0.85rem", color: "#2e7d32", marginTop: "0.25rem" }}>
+                      Waiting for Director to approve.
+                    </span>
+                  )}
                 </div>
               )}
               {selectedWorksheet.questions.map(q => {
@@ -410,6 +415,16 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
         setError(null);
         const data = await apiFetch(`/api/answers/?worksheet=${selectedWorksheetId}`);
         setAnswers(data);
+        const scoreByAnswer: Record<number, string> = {};
+        const feedbackByAnswer: Record<number, string> = {};
+        for (const a of data) {
+          if (a.grade_summary) {
+            scoreByAnswer[a.id] = a.grade_summary.score ?? "";
+            feedbackByAnswer[a.id] = a.grade_summary.feedback ?? "";
+          }
+        }
+        setGradeScore(prev => ({ ...prev, ...scoreByAnswer }));
+        setGradeFeedback(prev => ({ ...prev, ...feedbackByAnswer }));
       } catch (e: any) {
         setError(e.message ?? "Failed to load answers");
       } finally {
@@ -590,7 +605,7 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               }}
             >
               <p>
-                <strong>Student:</strong> {a.student}
+                <strong>Student:</strong> {a.student_username ?? a.student}
               </p>
               <p>
                 <strong>Current answer:</strong>
@@ -662,7 +677,7 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
                     marginBottom: "0.5rem",
                   }}
                 >
-                  <strong>Student {studentId}</strong>
+                  <strong>Student {answers.find((x: any) => x.student === studentId)?.student_username ?? studentId}</strong>
                   <div
                     style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}
                   >
@@ -862,48 +877,63 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
     </>
   );
 
+  async function handleReopen(gradeId: number) {
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch(`/api/worksheet-grades/${gradeId}/reopen/`, { method: "POST" });
+      await loadGrades();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to reopen");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <AppLayout user={user} onLogout={onLogout} sidebar={directorSidebar} title="Director">
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
       <h2>Worksheet Grades</h2>
-          {grades.map(g => (
-            <div
-              key={g.id}
-              style={{
-                border: "1px solid #ccc",
-                padding: "0.75rem",
-                marginBottom: "0.75rem",
-              }}
-            >
-              <p>
-                <strong>Worksheet:</strong> {g.worksheet}
-              </p>
-              <p>
-                <strong>Student:</strong> {g.student}
-              </p>
-              <p>
-                <strong>Total score:</strong> {g.score_total}
-              </p>
-              <p>
-                <strong>Status:</strong> {g.status}
-              </p>
-              {g.status === "PENDING_APPROVAL" && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <button onClick={() => handleApprove(g.id, "APPROVED")}>
-                    Approve
-                  </button>
-                  <button
-                    style={{ marginLeft: "0.5rem" }}
-                    onClick={() => handleApprove(g.id, "REJECTED")}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-      {grades.length === 0 && !loading && <p>No worksheet grades yet.</p>}
+      {grades.length === 0 && !loading && (
+        <p style={{ color: "#64748b" }}>No worksheet grades yet. Teachers assign final grades from the Teacher view.</p>
+      )}
+      {grades.map(g => (
+        <div
+          key={g.id}
+          style={{
+            border: "1px solid var(--mtihani-card-border)",
+            borderRadius: 8,
+            padding: "1rem",
+            marginBottom: "0.75rem",
+            background: g.status === "PENDING_APPROVAL" ? "#fffbeb" : "#fff",
+          }}
+        >
+          <p style={{ margin: "0 0 0.25rem" }}>
+            <strong>Worksheet:</strong> {g.worksheet_title ?? `#${g.worksheet}`}
+          </p>
+          <p style={{ margin: "0 0 0.25rem" }}>
+            <strong>Student:</strong> {g.student_username ?? g.student}
+          </p>
+          <p style={{ margin: "0 0 0.25rem" }}>
+            <strong>Total score:</strong> {g.score_total}
+          </p>
+          <p style={{ margin: "0 0 0.5rem" }}>
+            <strong>Status:</strong> {g.status}
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button onClick={() => handleApprove(g.id, "APPROVED")}>
+              Approve
+            </button>
+            <button onClick={() => handleApprove(g.id, "REJECTED")}>
+              Reject
+            </button>
+            {(g.status === "APPROVED" || g.status === "REJECTED") && (
+              <button onClick={() => handleReopen(g.id)}>Reopen</button>
+            )}
+          </div>
+        </div>
+      ))}
     </AppLayout>
   );
 }
