@@ -131,6 +131,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "EXCEPTION_HANDLER": "mtihani_backend.exception_handlers.mtihani_exception_handler",
 }
 
 
