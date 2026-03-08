@@ -973,49 +973,179 @@ function App() {
   if (!user) {
     const isLogin = mode === "login";
     return (
-      <div style={{ maxWidth: 400, margin: "4rem auto", fontFamily: "system-ui" }}>
-        <h1>Mtihani {isLogin ? "Login" : "Sign up"}</h1>
-        <form onSubmit={isLogin ? handleLogin : handleRegister}>
-          <div>
-            <label>Username</label>
-            <input
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
-          </div>
-          {!isLogin && (
-            <div style={{ marginTop: 8 }}>
-              <label>Role</label>
-              <select
-                value={role}
-                onChange={e => setRole(e.target.value as Role)}
-              >
-                <option value="STUDENT">Student</option>
-                <option value="TEACHER">Teacher</option>
-                <option value="DIRECTOR">Director</option>
-              </select>
-            </div>
-          )}
-          {error && <p style={{ color: "red" }}>{error}</p>}
-          <button type="submit" style={{ marginTop: 12 }}>
-            {isLogin ? "Login" : "Sign up"}
-          </button>
-        </form>
-        <button
-          type="button"
-          style={{ marginTop: 8 }}
-          onClick={() => setMode(isLogin ? "register" : "login")}
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(145deg, #f0f4f8 0%, #e2e8f0 100%)",
+          padding: "1rem",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 400,
+            background: "#fff",
+            borderRadius: 12,
+            boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
+            padding: "2rem",
+          }}
         >
-          {isLogin ? "Need an account? Sign up" : "Have an account? Login"}
-        </button>
+          <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.75rem",
+                color: "var(--mtihani-sidebar-active)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Mtihani
+            </h1>
+            <p style={{ margin: "0.25rem 0 0", fontSize: "0.9rem", color: "#64748b" }}>
+              {isLogin ? "Sign in to your account" : "Create an account"}
+            </p>
+          </div>
+
+          <form onSubmit={isLogin ? handleLogin : handleRegister}>
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  color: "#334155",
+                  marginBottom: "0.35rem",
+                }}
+              >
+                Username
+              </label>
+              <input
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 0.75rem",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+                placeholder="Your username"
+              />
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  color: "#334155",
+                  marginBottom: "0.35rem",
+                }}
+              >
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 0.75rem",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 8,
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+                placeholder="••••••••"
+              />
+            </div>
+            {!isLogin && (
+              <div style={{ marginBottom: "1rem" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: 500,
+                    color: "#334155",
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  Role
+                </label>
+                <select
+                  value={role}
+                  onChange={e => setRole(e.target.value as Role)}
+                  style={{
+                    width: "100%",
+                    padding: "0.6rem 0.75rem",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 8,
+                    fontSize: "1rem",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="STUDENT">Student</option>
+                  <option value="TEACHER">Teacher</option>
+                  <option value="DIRECTOR">Director</option>
+                </select>
+              </div>
+            )}
+            {error && (
+              <p
+                style={{
+                  margin: "0 0 0.75rem",
+                  fontSize: "0.85rem",
+                  color: "#dc2626",
+                  background: "#fef2f2",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: 6,
+                }}
+              >
+                {error}
+              </p>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: "100%",
+                padding: "0.65rem 1rem",
+                marginTop: "0.25rem",
+                background: "var(--mtihani-sidebar-active)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: "1rem",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {isLogin ? "Sign in" : "Create account"}
+            </button>
+          </form>
+
+          <p style={{ textAlign: "center", marginTop: "1.25rem", fontSize: "0.9rem", color: "#64748b" }}>
+            <button
+              type="button"
+              onClick={() => setMode(isLogin ? "register" : "login")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--mtihani-sidebar-active)",
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+                fontSize: "inherit",
+              }}
+            >
+              {isLogin ? "Need an account? Sign up" : "Have an account? Sign in"}
+            </button>
+          </p>
+        </div>
       </div>
     );
   }
