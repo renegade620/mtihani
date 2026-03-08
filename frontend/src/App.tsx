@@ -191,6 +191,8 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [selectedWorksheetId, setSelectedWorksheetId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<any[]>([]);
   const [suggestText, setSuggestText] = useState<Record<number, string>>({});
+  const [newQuestionPrompt, setNewQuestionPrompt] = useState("");
+  const [newQuestionMaxScore, setNewQuestionMaxScore] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -228,6 +230,9 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     loadAnswers();
   }, [selectedWorksheetId]);
 
+  const selectedWorksheet =
+    worksheets.find(w => w.id === selectedWorksheetId) || null;
+
   async function handleSuggest(answerId: number) {
     const text = suggestText[answerId];
     if (!text || !text.trim()) return;
@@ -241,6 +246,35 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       setSuggestText(prev => ({ ...prev, [answerId]: "" }));
     } catch (e: any) {
       setError(e.message ?? "Failed to send suggestion");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreateQuestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedWorksheetId || !newQuestionPrompt.trim()) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch("/api/questions/", {
+        method: "POST",
+        body: JSON.stringify({
+          worksheet: selectedWorksheetId,
+          prompt: newQuestionPrompt,
+          max_score: parseFloat(newQuestionMaxScore || "0"),
+          order_index: selectedWorksheet
+            ? selectedWorksheet.questions.length
+            : 0,
+        }),
+      });
+      setNewQuestionPrompt("");
+      setNewQuestionMaxScore("");
+      // reload worksheets to get updated questions
+      const ws = await apiFetch("/api/worksheets/");
+      setWorksheets(ws);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to create question");
     } finally {
       setLoading(false);
     }
@@ -284,6 +318,38 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
         </aside>
 
         <main style={{ flex: 1 }}>
+          {selectedWorksheet && (
+            <section style={{ marginBottom: "1.5rem" }}>
+              <h2>Questions in this worksheet</h2>
+              <ul>
+                {selectedWorksheet.questions.map(q => (
+                  <li key={q.id}>
+                    {q.prompt} (max {q.max_score})
+                  </li>
+                ))}
+              </ul>
+              <form onSubmit={handleCreateQuestion} style={{ marginTop: "0.5rem" }}>
+                <textarea
+                  placeholder="New question prompt"
+                  value={newQuestionPrompt}
+                  onChange={e => setNewQuestionPrompt(e.target.value)}
+                  style={{ width: "100%", minHeight: 60 }}
+                />
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="Max score (optional)"
+                  value={newQuestionMaxScore}
+                  onChange={e => setNewQuestionMaxScore(e.target.value)}
+                  style={{ marginTop: "0.5rem" }}
+                />
+                <button type="submit" style={{ marginTop: "0.5rem" }}>
+                  Add question
+                </button>
+              </form>
+            </section>
+          )}
+
           <h2>Student Answers</h2>
           {answers.map(a => (
             <div
