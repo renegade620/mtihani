@@ -335,24 +335,42 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
 
 function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [grades, setGrades] = useState<any[]>([]);
+  const [workbooks, setWorkbooks] = useState<any[]>([]);
+  const [selectedWorkbookId, setSelectedWorkbookId] = useState<number | null>(null);
+
+  const [newWorkbookTitle, setNewWorkbookTitle] = useState("");
+  const [newWorksheetTitle, setNewWorksheetTitle] = useState("");
+  const [newWorksheetInstructions, setNewWorksheetInstructions] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadGrades() {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await apiFetch("/api/worksheet-grades/");
-      setGrades(data);
-    } catch (e: any) {
-      setError(e.message ?? "Failed to load worksheet grades");
-    } finally {
-      setLoading(false);
+    const data = await apiFetch("/api/worksheet-grades/");
+    setGrades(data);
+  }
+
+  async function loadWorkbooks() {
+    const data = await apiFetch("/api/workbooks/");
+    setWorkbooks(data);
+    if (!selectedWorkbookId && data.length > 0) {
+      setSelectedWorkbookId(data[0].id);
     }
   }
 
   useEffect(() => {
-    loadGrades();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        await Promise.all([loadGrades(), loadWorkbooks()]);
+      } catch (e: any) {
+        setError(e.message ?? "Failed to load director data");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleApprove(id: number, statusValue: "APPROVED" | "REJECTED") {
@@ -363,7 +381,6 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
         method: "POST",
         body: JSON.stringify({ status: statusValue, comment: "" }),
       });
-      // Refresh list (simple + clear)
       await loadGrades();
     } catch (e: any) {
       setError(e.message ?? "Failed to update status");
@@ -371,6 +388,53 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
       setLoading(false);
     }
   }
+
+  async function handleCreateWorkbook(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newWorkbookTitle.trim()) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch("/api/workbooks/", {
+        method: "POST",
+        body: JSON.stringify({ title: newWorkbookTitle, description: "" }),
+      });
+      setNewWorkbookTitle("");
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to create workbook");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreateWorksheet(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedWorkbookId || !newWorksheetTitle.trim()) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch("/api/worksheets/", {
+        method: "POST",
+        body: JSON.stringify({
+          workbook: selectedWorkbookId,
+          title: newWorksheetTitle,
+          instructions: newWorksheetInstructions,
+          order_index: 0,
+          published: false,
+        }),
+      });
+      setNewWorksheetTitle("");
+      setNewWorksheetInstructions("");
+      await loadWorkbooks();
+    } catch (e: any) {
+      setError(e.message ?? "Failed to create worksheet");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const selectedWorkbook = workbooks.find((w: any) => w.id === selectedWorkbookId) || null;
 
   return (
     <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
@@ -389,44 +453,113 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <h2>Worksheet Grades</h2>
-      {grades.map(g => (
-        <div
-          key={g.id}
-          style={{
-            border: "1px solid #ccc",
-            padding: "0.75rem",
-            marginBottom: "0.75rem",
-          }}
-        >
-          <p>
-            <strong>Worksheet:</strong> {g.worksheet}
-          </p>
-          <p>
-            <strong>Student:</strong> {g.student}
-          </p>
-          <p>
-            <strong>Total score:</strong> {g.score_total}
-          </p>
-          <p>
-            <strong>Status:</strong> {g.status}
-          </p>
-          {g.status === "PENDING_APPROVAL" && (
-            <div style={{ marginTop: "0.5rem" }}>
-              <button onClick={() => handleApprove(g.id, "APPROVED")}>
-                Approve
-              </button>
-              <button
-                style={{ marginLeft: "0.5rem" }}
-                onClick={() => handleApprove(g.id, "REJECTED")}
+      <div style={{ display: "flex", gap: "2rem", marginTop: "1rem" }}>
+        {/* Left: Workbooks / Worksheets management */}
+        <aside style={{ minWidth: 280 }}>
+          <h2>Workbooks</h2>
+          <form onSubmit={handleCreateWorkbook}>
+            <input
+              placeholder="New workbook title"
+              value={newWorkbookTitle}
+              onChange={e => setNewWorkbookTitle(e.target.value)}
+              style={{ width: "100%" }}
+            />
+            <button type="submit" style={{ marginTop: "0.5rem" }}>
+              Create workbook
+            </button>
+          </form>
+
+          <div style={{ marginTop: "1rem" }}>
+            {workbooks.map((w: any) => (
+              <div
+                key={w.id}
+                onClick={() => setSelectedWorkbookId(w.id)}
+                style={{
+                  padding: "0.5rem",
+                  marginBottom: "0.25rem",
+                  cursor: "pointer",
+                  background: w.id === selectedWorkbookId ? "#eef" : "transparent",
+                }}
               >
-                Reject
-              </button>
+                {w.title}
+              </div>
+            ))}
+          </div>
+
+          {selectedWorkbook && (
+            <div style={{ marginTop: "1rem" }}>
+              <h3>Worksheets in "{selectedWorkbook.title}"</h3>
+              <ul>
+                {selectedWorkbook.worksheets.map((ws: any) => (
+                  <li key={ws.id}>
+                    {ws.title} {ws.published ? "(published)" : "(draft)"}
+                  </li>
+                ))}
+              </ul>
+
+              <form onSubmit={handleCreateWorksheet} style={{ marginTop: "0.5rem" }}>
+                <input
+                  placeholder="New worksheet title"
+                  value={newWorksheetTitle}
+                  onChange={e => setNewWorksheetTitle(e.target.value)}
+                  style={{ width: "100%", marginBottom: "0.5rem" }}
+                />
+                <textarea
+                  placeholder="Instructions (optional)"
+                  value={newWorksheetInstructions}
+                  onChange={e => setNewWorksheetInstructions(e.target.value)}
+                  style={{ width: "100%", minHeight: 60 }}
+                />
+                <button type="submit" style={{ marginTop: "0.5rem" }}>
+                  Create worksheet
+                </button>
+              </form>
             </div>
           )}
-        </div>
-      ))}
-      {grades.length === 0 && !loading && <p>No worksheet grades yet.</p>}
+        </aside>
+
+        {/* Right: Grades and approvals */}
+        <main style={{ flex: 1 }}>
+          <h2>Worksheet Grades</h2>
+          {grades.map(g => (
+            <div
+              key={g.id}
+              style={{
+                border: "1px solid #ccc",
+                padding: "0.75rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              <p>
+                <strong>Worksheet:</strong> {g.worksheet}
+              </p>
+              <p>
+                <strong>Student:</strong> {g.student}
+              </p>
+              <p>
+                <strong>Total score:</strong> {g.score_total}
+              </p>
+              <p>
+                <strong>Status:</strong> {g.status}
+              </p>
+              {g.status === "PENDING_APPROVAL" && (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <button onClick={() => handleApprove(g.id, "APPROVED")}>
+                    Approve
+                  </button>
+                  <button
+                    style={{ marginLeft: "0.5rem" }}
+                    onClick={() => handleApprove(g.id, "REJECTED")}
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {grades.length === 0 && !loading && <p>No worksheet grades yet.</p>}
+        </main>
+      </div>
     </div>
   );
 }
@@ -553,7 +686,13 @@ function App() {
     return <DirectorHome user={user} onLogout={handleLogout} />;
   }
 
-  return null;
+  return (
+    <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
+      <h1>Mtihani</h1>
+      <p>Logged in as {user.username} (no app role assigned).</p>
+      <button onClick={handleLogout}>Logout</button>
+    </div>
+  );
 }
 
 export default App;
