@@ -1,0 +1,32 @@
+# Render Blueprint: Mtihani API
+# https://render.com/docs/blueprint-spec
+#
+# 1. In Render Dashboard create a PostgreSQL database (Free), copy its "Internal Database URL".
+# 2. Deploy this blueprint (or create a Web Service manually). Set env vars in Dashboard:
+#    DATABASE_URL, DJANGO_ALLOWED_HOSTS, CORS_ALLOWED_ORIGINS, CSRF_TRUSTED_ORIGINS, DJANGO_SECRET_KEY.
+
+services:
+  - type: web
+    name: mtihani-api
+    runtime: python
+    region: oregon
+    plan: free
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn mtihani_backend.wsgi --bind 0.0.0.0:$PORT"
+
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+
+    healthCheckPath: /api/health/
