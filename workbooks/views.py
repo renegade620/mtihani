@@ -64,6 +64,10 @@ class WorksheetViewSet(viewsets.ModelViewSet):
             qs = qs.filter(workbook__organization=user.organization)
         return qs
 
+    def perform_create(self, serializer):
+        user = self.request.user
+        serializer.save(created_by=user)
+
 
 class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = QuestionSerializer
