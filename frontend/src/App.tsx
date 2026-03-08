@@ -36,6 +36,7 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
     null
   );
   const [answers, setAnswers] = useState<Record<number, Answer>>({});
+  const [worksheetGrades, setWorksheetGrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +55,18 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       }
     }
     load();
+  }, []);
+
+  useEffect(() => {
+    async function loadGrades() {
+      try {
+        const data = await apiFetch("/api/worksheet-grades/");
+        setWorksheetGrades(data);
+      } catch {
+        // ignore for now
+      }
+    }
+    loadGrades();
   }, []);
 
   async function handleAnswerChange(q: Question, text: string) {
@@ -101,6 +114,9 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   }
 
   const selectedWorksheet = worksheets.find(w => w.id === selectedWorksheetId) || null;
+  const currentWorksheetGrade =
+    selectedWorksheet &&
+    worksheetGrades.find(g => g.worksheet === selectedWorksheet.id);
 
   return (
     <div style={{ padding: "2rem", fontFamily: "system-ui" }}>
@@ -145,6 +161,19 @@ function StudentHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               <h2>{selectedWorksheet.title}</h2>
               {selectedWorksheet.instructions && (
                 <p>{selectedWorksheet.instructions}</p>
+              )}
+              {currentWorksheetGrade && (
+                <div
+                  style={{
+                    border: "1px solid #4caf50",
+                    background: "#e8f5e9",
+                    padding: "0.5rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <strong>Your grade:</strong> {currentWorksheetGrade.score_total}{" "}
+                  ({currentWorksheetGrade.status})
+                </div>
               )}
               {selectedWorksheet.questions.map(q => {
                 const ans = answers[q.id] || {

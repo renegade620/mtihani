@@ -52,7 +52,12 @@ class WorksheetGradeViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = WorksheetGradeSerializer
-    permission_classes = [IsTeacherOrDirector]
+
+    def get_permissions(self):
+        # Students may read their own grades; teachers/directors can read/write.
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsTeacherOrDirector()]
 
     def get_queryset(self):
         user: User = self.request.user
