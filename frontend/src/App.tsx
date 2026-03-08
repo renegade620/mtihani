@@ -191,6 +191,8 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [selectedWorksheetId, setSelectedWorksheetId] = useState<number | null>(null);
   const [answers, setAnswers] = useState<any[]>([]);
   const [suggestText, setSuggestText] = useState<Record<number, string>>({});
+  const [gradeScore, setGradeScore] = useState<Record<number, string>>({});
+  const [gradeFeedback, setGradeFeedback] = useState<Record<number, string>>({});
   const [newQuestionPrompt, setNewQuestionPrompt] = useState("");
   const [newQuestionMaxScore, setNewQuestionMaxScore] = useState("");
   const [loading, setLoading] = useState(false);
@@ -246,6 +248,31 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
       setSuggestText(prev => ({ ...prev, [answerId]: "" }));
     } catch (e: any) {
       setError(e.message ?? "Failed to send suggestion");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGrade(answerId: number) {
+    const scoreStr = gradeScore[answerId];
+    if (!scoreStr) return;
+    const score = parseFloat(scoreStr);
+    if (Number.isNaN(score)) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await apiFetch("/api/answer-grades/", {
+        method: "POST",
+        body: JSON.stringify({
+          answer: answerId,
+          score,
+          feedback: gradeFeedback[answerId] || "",
+          is_final_for_answer: true,
+        }),
+      });
+    } catch (e: any) {
+      setError(e.message ?? "Failed to save grade");
     } finally {
       setLoading(false);
     }
@@ -390,6 +417,33 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
               >
                 Send suggestion
               </button>
+              <div style={{ marginTop: "0.75rem" }}>
+                <h3 style={{ margin: 0, fontSize: "1rem" }}>Grade</h3>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                  <input
+                    type="number"
+                    step="0.5"
+                    placeholder="Score"
+                    value={gradeScore[a.id] || ""}
+                    onChange={e =>
+                      setGradeScore(prev => ({ ...prev, [a.id]: e.target.value }))
+                    }
+                    style={{ width: "6rem" }}
+                  />
+                  <input
+                    placeholder="Feedback"
+                    value={gradeFeedback[a.id] || ""}
+                    onChange={e =>
+                      setGradeFeedback(prev => ({
+                        ...prev,
+                        [a.id]: e.target.value,
+                      }))
+                    }
+                    style={{ flex: 1 }}
+                  />
+                  <button onClick={() => handleGrade(a.id)}>Save</button>
+                </div>
+              </div>
             </div>
           ))}
           {answers.length === 0 && <p>No answers yet for this worksheet.</p>}
