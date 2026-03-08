@@ -38,10 +38,12 @@ class WorksheetDetailSerializer(serializers.ModelSerializer):
         model = Worksheet
         fields = [
             "id",
+            "workbook",
             "title",
             "instructions",
             "order_index",
             "published",
             "questions",
         ]
+        read_only_fields = ["id", "questions"]
 
