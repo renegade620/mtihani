@@ -1383,7 +1383,7 @@ function App() {
         <div
           style={{
             width: "100%",
-            maxWidth: 400,
+            maxWidth: 420,
             background: "#fff",
             borderRadius: 12,
             boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
@@ -1391,19 +1391,88 @@ function App() {
           }}
         >
           <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 999,
+                margin: "0 auto 0.75rem",
+                background: "rgba(79,70,229,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ fontSize: "1.75rem" }}>📘</span>
+            </div>
             <h1
               style={{
                 margin: 0,
-                fontSize: "1.75rem",
-                color: "var(--mtihani-sidebar-active)",
-                letterSpacing: "-0.02em",
+                fontSize: "1.7rem",
+                color: "#0f172a",
+                letterSpacing: "-0.03em",
               }}
             >
               Mtihani
             </h1>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "0.9rem", color: "#64748b" }}>
-              {isLogin ? "Sign in to your account" : "Create an account"}
+            <p
+              style={{
+                margin: "0.35rem 0 0",
+                fontSize: "0.9rem",
+                color: "#64748b",
+              }}
+            >
+              Sign in or create an account
             </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              background: "#f1f5f9",
+              padding: 4,
+              borderRadius: 999,
+              marginBottom: "1.5rem",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              style={{
+                flex: 1,
+                padding: "0.4rem 0.75rem",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                background: isLogin ? "#0f172a" : "transparent",
+                color: isLogin ? "#fff" : "#475569",
+                boxShadow: isLogin ? "0 6px 18px rgba(15,23,42,0.35)" : "none",
+                transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("register")}
+              style={{
+                flex: 1,
+                padding: "0.4rem 0.75rem",
+                borderRadius: 999,
+                border: "none",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                background: !isLogin ? "#0f172a" : "transparent",
+                color: !isLogin ? "#fff" : "#475569",
+                boxShadow: !isLogin ? "0 6px 18px rgba(15,23,42,0.35)" : "none",
+                transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
+              }}
+            >
+              Sign Up
+            </button>
           </div>
 
           <form onSubmit={isLogin ? handleLogin : handleRegister}>
@@ -1510,38 +1579,21 @@ function App() {
               type="submit"
               style={{
                 width: "100%",
-                padding: "0.65rem 1rem",
+                padding: "0.75rem 1rem",
                 marginTop: "0.25rem",
-                background: "var(--mtihani-sidebar-active)",
+                background: "#0f172a",
                 color: "#fff",
                 border: "none",
-                borderRadius: 8,
-                fontSize: "1rem",
-                fontWeight: 500,
+                borderRadius: 999,
+                fontSize: "0.98rem",
+                fontWeight: 600,
                 cursor: "pointer",
+                boxShadow: "0 10px 30px rgba(15,23,42,0.4)",
               }}
             >
               {isLogin ? "Sign in" : "Create account"}
             </button>
           </form>
-
-          <p style={{ textAlign: "center", marginTop: "1.25rem", fontSize: "0.9rem", color: "#64748b" }}>
-            <button
-              type="button"
-              onClick={() => setMode(isLogin ? "register" : "login")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--mtihani-sidebar-active)",
-                cursor: "pointer",
-                textDecoration: "underline",
-                padding: 0,
-                fontSize: "inherit",
-              }}
-            >
-              {isLogin ? "Need an account? Sign up" : "Have an account? Sign in"}
-            </button>
-          </p>
         </div>
       </div>
     );

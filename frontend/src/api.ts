@@ -42,13 +42,18 @@ export async function apiFetch<T = any>(path: string, options: RequestInit = {})
   }
 
   if (!res.ok) {
+    const text = await res.text().catch(() => "");
     let message = `${res.status} ${res.statusText}`;
     try {
-      const body = await res.json();
+      const body = JSON.parse(text);
       message = parseApiError(body);
     } catch {
-      const text = await res.text().catch(() => "");
-      if (text && text.length < 200) message = text;
+      if (text && text.length < 300) {
+        const m = text.match(/<title>([^<]+)<\/title>|<h1>([^<]+)<\/h1>/);
+        message = m ? (m[1] || m[2]).trim() : text.trim();
+      } else if (res.status === 400) {
+        message = "Bad request. Check CORS and CSRF_TRUSTED_ORIGINS include your frontend URL.";
+      }
     }
     if (res.status === 401) localStorage.removeItem("token");
     throw new ApiError(message, res.status);
