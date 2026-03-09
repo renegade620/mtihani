@@ -466,12 +466,15 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
   }, []);
 
   useEffect(() => {
-    async function loadAnswers() {
-      if (!selectedWorksheetId) return;
+    if (!selectedWorksheetId) return;
+
+    let cancelled = false;
+
+    async function loadAnswersOnce() {
       try {
-        setLoading(true);
         setError(null);
-        const data = await apiFetch(`/api/answers/?worksheet=${selectedWorksheetId}`);
+        const data = await apiFetch<any[]>(`/api/answers/?worksheet=${selectedWorksheetId}`);
+        if (cancelled) return;
         setAnswers(data);
         const scoreByAnswer: Record<number, string> = {};
         const feedbackByAnswer: Record<number, string> = {};
@@ -484,25 +487,43 @@ function TeacherHome({ user, onLogout }: { user: User; onLogout: () => void }) {
         setGradeScore(prev => ({ ...prev, ...scoreByAnswer }));
         setGradeFeedback(prev => ({ ...prev, ...feedbackByAnswer }));
       } catch (e: any) {
-        setError(e.message ?? "Failed to load answers");
-      } finally {
-        setLoading(false);
+        if (!cancelled) setError(e.message ?? "Failed to load answers");
       }
     }
-    loadAnswers();
+
+    // initial load
+    loadAnswersOnce();
+    // poll every 15s for near real-time updates
+    const intervalId = window.setInterval(loadAnswersOnce, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [selectedWorksheetId]);
 
   useEffect(() => {
-    async function loadGrades() {
-      if (!selectedWorksheetId) return;
+    if (!selectedWorksheetId) return;
+
+    let cancelled = false;
+
+    async function loadGradesOnce() {
       try {
-        const data = await apiFetch("/api/worksheet-grades/");
+        const data = await apiFetch<any[]>("/api/worksheet-grades/");
+        if (cancelled) return;
         setWorksheetGrades(data.filter((g: any) => g.worksheet === selectedWorksheetId));
       } catch {
-        setWorksheetGrades([]);
+        if (!cancelled) setWorksheetGrades([]);
       }
     }
-    loadGrades();
+
+    loadGradesOnce();
+    const intervalId = window.setInterval(loadGradesOnce, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [selectedWorksheetId]);
 
   const selectedWorksheet =
@@ -885,6 +906,31 @@ function DirectorHome({ user, onLogout }: { user: User; onLogout: () => void }) 
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Near real-time updates for grades tab
+  useEffect(() => {
+    if (directorTab !== "grades") return;
+
+    let cancelled = false;
+
+    async function tick() {
+      try {
+        await loadGrades();
+      } catch (e) {
+        if (!cancelled) {
+          // swallow for now; initial load effect already surfaces errors
+        }
+      }
+    }
+
+    tick();
+    const intervalId = window.setInterval(tick, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [directorTab]);
 
   async function handleApprove(id: number, statusValue: "APPROVED" | "REJECTED") {
     try {
@@ -1376,7 +1422,7 @@ function App() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(145deg, #f0f4f8 0%, #e2e8f0 100%)",
+          background: "linear-gradient(180deg, #f5f9fc 0%, #e5edf5 100%)",
           padding: "1rem",
         }}
       >
@@ -1386,7 +1432,7 @@ function App() {
             maxWidth: 420,
             background: "#fff",
             borderRadius: 12,
-            boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
+            boxShadow: "0 4px 16px rgba(15,23,42,0.08)",
             padding: "2rem",
           }}
         >
@@ -1397,7 +1443,7 @@ function App() {
                 height: 56,
                 borderRadius: 999,
                 margin: "0 auto 0.75rem",
-                background: "rgba(79,70,229,0.08)",
+                background: "rgba(0,119,182,0.08)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1409,7 +1455,7 @@ function App() {
               style={{
                 margin: 0,
                 fontSize: "1.7rem",
-                color: "#0f172a",
+                color: "#0077b6",
                 letterSpacing: "-0.03em",
               }}
             >
@@ -1442,13 +1488,13 @@ function App() {
                 flex: 1,
                 padding: "0.4rem 0.75rem",
                 borderRadius: 999,
-                border: "none",
+                border: "1px solid transparent",
                 cursor: "pointer",
                 fontSize: "0.9rem",
                 fontWeight: 600,
-                background: isLogin ? "#0f172a" : "transparent",
+                background: isLogin ? "#0077b6" : "transparent",
                 color: isLogin ? "#fff" : "#475569",
-                boxShadow: isLogin ? "0 6px 18px rgba(15,23,42,0.35)" : "none",
+                boxShadow: "none",
                 transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
               }}
             >
@@ -1461,13 +1507,13 @@ function App() {
                 flex: 1,
                 padding: "0.4rem 0.75rem",
                 borderRadius: 999,
-                border: "none",
+                border: "1px solid transparent",
                 cursor: "pointer",
                 fontSize: "0.9rem",
                 fontWeight: 600,
-                background: !isLogin ? "#0f172a" : "transparent",
+                background: !isLogin ? "#0077b6" : "transparent",
                 color: !isLogin ? "#fff" : "#475569",
-                boxShadow: !isLogin ? "0 6px 18px rgba(15,23,42,0.35)" : "none",
+                boxShadow: "none",
                 transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
               }}
             >
@@ -1581,14 +1627,14 @@ function App() {
                 width: "100%",
                 padding: "0.75rem 1rem",
                 marginTop: "0.25rem",
-                background: "#0f172a",
+                background: "#0077b6",
                 color: "#fff",
                 border: "none",
                 borderRadius: 999,
                 fontSize: "0.98rem",
                 fontWeight: 600,
                 cursor: "pointer",
-                boxShadow: "0 10px 30px rgba(15,23,42,0.4)",
+                boxShadow: "0 2px 6px rgba(0,119,182,0.35)",
               }}
             >
               {isLogin ? "Sign in" : "Create account"}
