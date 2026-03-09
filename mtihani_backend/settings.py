@@ -161,3 +161,8 @@ CORS_ALLOWED_ORIGINS = _cors.split(",") if _cors else [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# CSRF: Django 4.0+ requires trusted origins for cross-origin POST requests.
+# Without this, Django's CsrfViewMiddleware returns a bare HTML 400 before
+# DRF even sees the request, making errors impossible to parse on the frontend.
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
