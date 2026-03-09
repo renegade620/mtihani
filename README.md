@@ -12,7 +12,7 @@ A collaborative assignment platform built for structured learning workflows acro
 
 ## Tech Stack
 
-**Backend** — Django + Django REST Framework, Token auth, Django Channels (WebSocket-ready), PostgreSQL (SQLite in dev)
+**Backend** — Django + Django REST Framework, Token auth, Django Channels (WebSocket-ready), PostgreSQL (SQLite in dev, Postgres in prod)
 
 **Frontend** — React + TypeScript, React Router, TanStack Query, Tailwind CSS, React Hook Form
 
