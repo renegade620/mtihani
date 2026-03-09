@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { apiFetch } from "../services/api";
 import { Role } from "../types";
-import { BookOpen } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 
 type AuthProps = {
   onLoginSuccess: () => void;
@@ -51,13 +51,13 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-100 p-8 relative z-10 transition-all duration-300">
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-sm border border-indigo-100">
-             <BookOpen size={28} />
+             <ClipboardList size={28} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
             Mtihani
           </h1>
           <p className="text-slate-500 text-sm font-medium">
-            Next-gen learning assignment platform
+            Beating deadlines appropriately
           </p>
         </div>
 
